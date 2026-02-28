@@ -3,108 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>窗簾樣品雲端管理</title>
+    <title>窗簾樣品雲端管理系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>body { font-family: sans-serif; }</style>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; }
+    </style>
 </head>
-<body class="bg-gray-50 p-4">
+<body class="bg-slate-50 min-h-screen p-4">
     <div class="max-w-md mx-auto">
-        <header class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl font-bold text-gray-800">樣品管理</h1>
-            <button onclick="openModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg shadow">+ 新增</button>
+        <header class="flex justify-between items-center mb-6 py-2">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800">樣品管理系統</h1>
+                <p class="text-xs text-slate-500">所有裝置同步中</p>
+            </div>
+            <button onclick="openModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-md transition-all active:scale-95">
+                + 新增
+            </button>
         </header>
 
-        <div id="statusText" class="text-center py-4 text-gray-500">同步雲端資料中...</div>
+        <div id="statusText" class="text-center py-10 text-slate-400 animate-pulse">
+            正在連線至雲端資料庫...
+        </div>
+
         <div id="list" class="space-y-3"></div>
     </div>
 
-    <div id="modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4">
-        <div class="bg-white p-6 rounded-xl w-full max-w-xs">
-            <h2 class="font-bold mb-4 text-lg">新增樣本</h2>
-            <input type="text" id="newName" placeholder="名稱 (編號)" class="w-full border p-2 mb-3 rounded">
-            <select id="newCat" class="w-full border p-2 mb-4 rounded">
-                <option>布簾</option><option>紗簾</option><option>捲簾</option><option>百葉窗</option>
-            </select>
-            <div class="flex justify-end gap-2">
-                <button onclick="closeModal()" class="text-gray-400">取消</button>
-                <button onclick="addSample()" class="bg-blue-600 text-white px-4 py-1 rounded">確認</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // ！！！請在下方貼上你的 Google API 網址 ！！！
-        // 請確保這一行長得跟下面一模一樣，引號內不要有空格或多餘符號
-const API_URL = 'https://script.google.com/macros/s/AKfycbyzaEG_dMX55Lkr4Dq1BNiE3eEI2cL467xhXbk3Kqa_GhFFXm6ktrHG-evjOx181Fur/exec';
-
-        async function loadData() {
-            document.getElementById('statusText').innerText = "同步資料中...";
-            try {
-                const res = await fetch(API_URL);
-                const data = await res.json();
-                render(data);
-                document.getElementById('statusText').innerText = data.length > 0 ? "" : "目前沒有樣本";
-            } catch (e) {
-                document.getElementById('statusText').innerText = "連線失敗，請檢查設定";
-            }
-        }
-
-        function render(data) {
-            const list = document.getElementById('list');
-            list.innerHTML = data.map(item => `
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
-                    <div>
-                        <div class="font-bold text-gray-800">${item[0]}</div>
-                        <div class="text-xs text-gray-400">${item[1]}</div>
-                        <div class="mt-1 text-sm ${item[2] === '在店' ? 'text-green-600' : 'text-orange-600'}">
-                            ● ${item[2]} ${item[3] ? '('+item[3]+')' : ''}
-                        </div>
-                    </div>
-                    <div class="flex flex-col gap-2">
-                        <button onclick="toggleStatus('${item[0]}', '${item[2]}')" class="text-sm bg-gray-50 border px-3 py-1 rounded-md hover:bg-gray-100">
-                            ${item[2] === '在店' ? '借出' : '歸還'}
-                        </button>
-                        <button onclick="deleteSample('${item[0]}')" class="text-[10px] text-red-300 hover:text-red-500">刪除</button>
-                    </div>
+    <div id="modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-6 rounded-2xl w-full max-w-xs shadow-2xl">
+            <h2 class="font-bold mb-4 text-lg border-b pb-2">新增窗簾樣本</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs text-slate-500 block mb-1">樣本名稱 / 編號</label>
+                    <input type="text" id="newName" placeholder="例如：亞麻灰 A01" class="w-full border border-slate-200 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
-            `).join('');
-        }
-
-        async function addSample() {
-            const name = document.getElementById('newName').value;
-            const category = document.getElementById('newCat').value;
-            if(!name) return;
-            closeModal();
-            await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'add', name, category }) });
-            loadData();
-        }
-
-        async function toggleStatus(name, currentStatus) {
-            let borrower = "";
-            let nextStatus = "在店";
-            if(currentStatus === "在店") {
-                borrower = prompt("請輸入借閱人名稱：");
-                if(!borrower) return;
-                nextStatus = "外借中";
-            }
-            await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'update', name, status: nextStatus, borrower }) });
-            loadData();
-        }
-
-        async function deleteSample(name) {
-            if(!confirm("確定刪除？")) return;
-            await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'delete', name }) });
-            loadData();
-        }
-
-        function openModal() { document.getElementById('modal').classList.remove('hidden'); }
-        function closeModal() { document.getElementById('modal').classList.add('hidden'); }
-
-        loadData();
-    </script>
-</body>
-
-</html>
-
-
-
+                <div>
+                    <label class="text-xs text-slate-500 block mb-1">樣品分類</label>
+                    <select id="newCat" class="w-full border border-slate-200 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option>布簾</option>
+                        <option>紗簾</option>
+                        <option>捲簾</option>
+                        <option>百葉窗</option>
+                        <option>調光簾</option>
+                    </select>
+                </div>
+            </div>
