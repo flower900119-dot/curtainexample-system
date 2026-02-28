@@ -7,23 +7,34 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; }
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; }
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4f46e5;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen p-4">
+<body class="min-h-screen p-4">
     <div class="max-w-md mx-auto">
-        <header class="flex justify-between items-center mb-6 py-2">
+        <header class="flex justify-between items-center mb-6 py-4">
             <div>
-                <h1 class="text-2xl font-bold text-slate-800">樣品管理系統</h1>
-                <p class="text-xs text-slate-500">所有裝置同步中</p>
+                <h1 class="text-2xl font-bold text-slate-800">樣品雲端管理</h1>
+                <p class="text-xs text-slate-500">Google 試算表同步版</p>
             </div>
-            <button onclick="openModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-md transition-all active:scale-95">
+            <button onclick="openModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl shadow-lg transition-all active:scale-95 text-sm font-bold">
                 + 新增
             </button>
         </header>
 
-        <div id="statusText" class="text-center py-10 text-slate-400 animate-pulse">
-            正在連線至雲端資料庫...
+        <div id="statusContainer" class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 text-center mb-4">
+            <div id="loader" class="loading-spinner mb-2"></div>
+            <div id="statusText" class="text-slate-500 font-medium">連線至雲端資料庫中...</div>
         </div>
 
         <div id="list" class="space-y-3"></div>
@@ -31,20 +42,130 @@
 
     <div id="modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white p-6 rounded-2xl w-full max-w-xs shadow-2xl">
-            <h2 class="font-bold mb-4 text-lg border-b pb-2">新增窗簾樣本</h2>
+            <h2 class="font-bold mb-4 text-lg border-b pb-2 text-slate-800">新增窗簾樣本</h2>
             <div class="space-y-4">
                 <div>
                     <label class="text-xs text-slate-500 block mb-1">樣本名稱 / 編號</label>
-                    <input type="text" id="newName" placeholder="例如：亞麻灰 A01" class="w-full border border-slate-200 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="text" id="newName" placeholder="例如：亞麻灰 A01" class="w-full border border-slate-200 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
                 </div>
                 <div>
                     <label class="text-xs text-slate-500 block mb-1">樣品分類</label>
-                    <select id="newCat" class="w-full border border-slate-200 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        <option>布簾</option>
-                        <option>紗簾</option>
-                        <option>捲簾</option>
-                        <option>百葉窗</option>
-                        <option>調光簾</option>
+                    <select id="newCat" class="w-full border border-slate-200 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                        <option>布簾</option><option>紗簾</option><option>捲簾</option><option>百葉窗</option><option>調光簾</option>
                     </select>
                 </div>
             </div>
+            <div class="flex justify-end gap-3 mt-8">
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 font-medium">取消</button>
+                <button id="saveBtn" onclick="addSample()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold shadow-md hover:bg-indigo-700">儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 您提供的正確 API 網址
+        const API_URL = 'https://script.google.com/macros/s/AKfycbyzaEG_dMX55Lkr4Dq1BNiE3eEI2cL467xhXbk3Kqa_GhFFXm6ktrHG-evjOx181Fur/exec'; 
+
+        async function loadData() {
+            const statusContainer = document.getElementById('statusContainer');
+            const statusText = document.getElementById('statusText');
+            const loader = document.getElementById('loader');
+            const listArea = document.getElementById('list');
+
+            loader.style.display = "inline-block";
+            statusText.innerText = "同步資料中...";
+            statusContainer.classList.remove('hidden');
+
+            try {
+                // 使用快取避免 Google API 延遲
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error("Google 伺服器無回應");
+                
+                const data = await response.json();
+                
+                render(data);
+                
+                if (data.length === 0) {
+                    statusText.innerText = "📭 目前庫存空空如也，請點擊新增";
+                    loader.style.display = "none";
+                } else {
+                    statusContainer.classList.add('hidden');
+                }
+            } catch (e) {
+                console.error(e);
+                loader.style.display = "none";
+                statusText.innerHTML = `<span class="text-red-500">❌ 讀取失敗</span><br><small class="text-slate-400">原因：${e.message}</small><br><button onclick="loadData()" class="mt-2 text-indigo-600 underline">按此重試</button>`;
+            }
+        }
+
+        function render(data) {
+            const list = document.getElementById('list');
+            list.innerHTML = data.map(item => `
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center hover:shadow-md transition-all">
+                    <div class="flex-1">
+                        <div class="font-bold text-slate-800 text-lg">${item[0]}</div>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium">${item[1]}</span>
+                            <span class="text-xs font-bold ${item[2] === '在店' ? 'text-emerald-500' : 'text-orange-500'}">
+                                ${item[2] === '在店' ? '● 在店庫存' : '● 外借中 (' + item[3] + ')'}
+                            </span>
+                        </div>
+                    </div>
+                    <button onclick="toggleStatus('${item[0]}', '${item[2]}')" class="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-100 px-4 py-2 rounded-xl text-sm font-bold transition-colors">
+                        ${item[2] === '在店' ? '借出' : '歸還'}
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        async function addSample() {
+            const name = document.getElementById('newName').value.trim();
+            const category = document.getElementById('newCat').value;
+            if(!name) return alert("請輸入名稱");
+            
+            const btn = document.getElementById('saveBtn');
+            btn.innerText = "傳送中...";
+            btn.disabled = true;
+
+            try {
+                await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'add', name, category }) });
+                document.getElementById('newName').value = "";
+                closeModal();
+                loadData();
+            } catch (e) {
+                alert("儲存失敗，請檢查網路連線");
+            } finally {
+                btn.innerText = "儲存";
+                btn.disabled = false;
+            }
+        }
+
+        async function toggleStatus(name, currentStatus) {
+            let borrower = "";
+            let nextStatus = "在店";
+            if(currentStatus === "在店") {
+                borrower = prompt("請輸入借閱者姓名：");
+                if(!borrower) return;
+                nextStatus = "外借中";
+            }
+            
+            document.getElementById('statusContainer').classList.remove('hidden');
+            document.getElementById('statusText').innerText = "更新狀態中...";
+            
+            try {
+                await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'update', name, status: nextStatus, borrower }) });
+                loadData();
+            } catch (e) {
+                alert("更新失敗");
+                document.getElementById('statusContainer').classList.add('hidden');
+            }
+        }
+
+        function openModal() { document.getElementById('modal').classList.remove('hidden'); }
+        function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+
+        // 初始化
+        window.onload = loadData;
+    </script>
+</body>
+</html>
