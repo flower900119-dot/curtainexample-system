@@ -11,31 +11,31 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="p-4">
+<body class="p-4 text-slate-700">
     <div class="max-w-md mx-auto">
         <header class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl font-bold text-slate-800">樣品管理系統</h1>
+            <h1 class="text-2xl font-bold">樣品管理</h1>
             <button onclick="openModal()" class="bg-indigo-600 text-white px-5 py-2 rounded-xl shadow-lg">+ 新增</button>
         </header>
 
         <div id="statusBox" class="bg-white rounded-xl p-8 text-center shadow-sm border border-slate-200 mb-4">
             <div id="loader" class="loading-ring mx-auto mb-3"></div>
-            <div id="statusText" class="text-slate-500 font-medium">連線中，請稍候...</div>
+            <div id="statusText" class="text-slate-500 font-medium">連線同步中...</div>
         </div>
 
         <div id="list" class="space-y-3"></div>
     </div>
 
-    <div id="modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-        <div class="bg-white p-6 rounded-2xl w-full max-w-xs shadow-2xl">
-            <h2 class="font-bold mb-4 text-lg border-b pb-2">新增樣本</h2>
-            <input type="text" id="newName" placeholder="名稱 (如：A01 灰紗)" class="w-full border border-slate-200 p-2.5 rounded-lg mb-3">
-            <select id="newCat" class="w-full border border-slate-200 p-2.5 rounded-lg mb-6">
+    <div id="modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-6 rounded-2xl w-full max-w-xs">
+            <h2 class="font-bold mb-4 text-lg">新增樣本</h2>
+            <input type="text" id="newName" placeholder="樣本名稱" class="w-full border p-2.5 rounded-lg mb-3 outline-none">
+            <select id="newCat" class="w-full border p-2.5 rounded-lg mb-6">
                 <option>布簾</option><option>紗簾</option><option>捲簾</option><option>百葉窗</option>
             </select>
             <div class="flex justify-end gap-3">
                 <button onclick="closeModal()" class="text-slate-400">取消</button>
-                <button id="saveBtn" onclick="addSample()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold">確認儲存</button>
+                <button id="saveBtn" onclick="addSample()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold">儲存</button>
             </div>
         </div>
     </div>
@@ -44,22 +44,18 @@
         const API_URL = 'https://script.google.com/macros/s/AKfycbyzaEG_dMX55Lkr4Dq1BNiE3eEI2cL467xhXbk3Kqa_GhFFXm6ktrHG-evjOx181Fur/exec'; 
 
         async function loadData() {
-            const statusBox = document.getElementById('statusBox');
-            const statusText = document.getElementById('statusText');
-            const loader = document.getElementById('loader');
             try {
                 const res = await fetch(API_URL);
                 const data = await res.json();
                 render(data);
                 if (data.length === 0) {
-                    statusText.innerText = "目前沒有資料，請點擊新增";
-                    loader.style.display = "none";
+                    document.getElementById('statusText').innerText = "目前沒有資料";
+                    document.getElementById('loader').style.display = "none";
                 } else {
-                    statusBox.classList.add('hidden');
+                    document.getElementById('statusBox').classList.add('hidden');
                 }
             } catch (e) {
-                loader.style.display = "none";
-                statusText.innerHTML = "❌ 連線失敗<br><small>請檢查網路或 API 設定</small>";
+                document.getElementById('statusText').innerText = "連線失敗";
             }
         }
 
@@ -68,10 +64,10 @@
             list.innerHTML = data.map(item => `
                 <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
                     <div>
-                        <div class="font-bold text-slate-800 text-lg">${item[0]}</div>
-                        <div class="text-xs text-slate-400 mt-1">${item[1]} | <span class="${item[2] === '在店' ? 'text-green-500' : 'text-orange-500'} font-bold">${item[2]} ${item[3] ? '('+item[3]+')' : ''}</span></div>
+                        <div class="font-bold text-lg">${item[0]}</div>
+                        <div class="text-xs text-slate-400 mt-1">${item[1]} | <span class="${item[2] === '在店' ? 'text-green-600' : 'text-orange-600'} font-bold">${item[2]} ${item[3] ? '('+item[3]+')' : ''}</span></div>
                     </div>
-                    <button onclick="toggleStatus('${item[0]}', '${item[2]}')" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg text-sm font-bold">
+                    <button onclick="toggleStatus('${item[0]}', '${item[2]}')" class="bg-slate-100 px-4 py-2 rounded-lg text-sm font-bold">
                         ${item[2] === '在店' ? '借出' : '歸還'}
                     </button>
                 </div>
@@ -82,7 +78,7 @@
             const name = document.getElementById('newName').value.trim();
             const category = document.getElementById('newCat').value;
             if(!name) return;
-            document.getElementById('saveBtn').innerText = "儲存中...";
+            document.getElementById('saveBtn').innerText = "傳送中...";
             await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'add', name, category }) });
             location.reload(); 
         }
@@ -95,10 +91,20 @@
                 if(!borrower) return;
                 nextStatus = "外借中";
             }
+            
+            // 顯示連線中狀態
             document.getElementById('statusBox').classList.remove('hidden');
-            document.getElementById('statusText').innerText = "更新中...";
-            await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'update', name, status: nextStatus, borrower }) });
-            loadData();
+            document.getElementById('statusText').innerText = "雲端同步中...";
+            
+            try {
+                // 發送到 Google 並等待回應
+                await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'update', name, status: nextStatus, borrower }) });
+                // 成功後強制重新整理網頁
+                location.reload();
+            } catch (e) {
+                alert("同步失敗，請再試一次");
+                location.reload();
+            }
         }
 
         function openModal() { document.getElementById('modal').classList.remove('hidden'); }
